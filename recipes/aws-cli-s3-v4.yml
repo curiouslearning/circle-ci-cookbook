@@ -1,0 +1,73 @@
+orbs:
+  aws-cli: circleci/aws-cli@5.2.0
+  aws-s3: circleci/aws-s3@4.1.1
+  node: circleci/node@7.0.0
+  
+commands:
+  build-and-deploy:
+    parameters:
+      to:
+        type: string
+        default: 's3://feedthemonster-development'
+    steps:
+      - checkout
+      - run: sudo npm install -g npm@latest
+      - node/install-packages
+      - run: npm run build
+      - aws-cli/setup:
+          aws_access_key_id: AWS_ACCESS_KEY
+          region: AWS_DEFAULT_REGION
+          aws_secret_access_key: AWS_SECRET_ACCESS_KEY
+      - aws-s3/sync:
+          arguments: --acl public-read --cache-control "max-age=86400"
+          from: ./build/
+          to: << parameters.to >>
+
+jobs:
+  build-and-deploy-dev:
+    docker:
+      - image: cimg/python:3.13.2-node
+    steps:
+      - build-and-deploy:
+          to: S3_BUCKET_DEV
+          # 's3://feedthemonster-development'
+
+  build-and-deploy-test:
+    docker:
+      - image: cimg/python:3.13.2-node
+    steps:
+      - build-and-deploy:
+          to: S3_BUCKET_TEST
+          # 's3://globallit-aws-s3-static-webapp-test-us-east-2/feed-the-monster'
+  build-and-deploy-prod:
+    docker:
+      - image: cimg/python:3.13.2-node
+    steps:
+      - build-and-deploy:
+          to: S3_BUCKET_PROD
+          # 's3://feedthemonster-production'
+workflows:
+  s3-deploy-workflow:
+    jobs:
+      - node/test
+      - build-and-deploy-dev:
+          context:
+            - aws-context
+          filters:
+            branches:
+              only:
+                - develop
+      - build-and-deploy-test:
+          context:
+            - aws-context
+          filters:
+            branches:
+              only:
+                - test
+      - build-and-deploy-prod:
+          context:
+            - aws-context
+          filters:
+            branches:
+              only:
+                - main

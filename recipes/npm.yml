@@ -1,0 +1,20 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@7.0.0
+
+jobs:
+  npm-build:
+    executor: node/default
+    steps:
+      - checkout
+      - run: sudo npm install -g npm@latest
+      - node/install-packages:
+          cache-path: ~/project/node_modules
+          override-ci-command: npm install
+      - run: npm run build
+      # Store build artifacts into workspace
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
